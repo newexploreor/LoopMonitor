@@ -1,0 +1,29 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #f5f7fb;
+}
+
+.spark {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  min-height: 18px;
+}
+
+.spark i {
+  width: 7px;
+  height: 16px;
+  border-radius: 1px;
+  display: inline-block;
+}
+
+.spark i.ok { background: #52c41a; }
+.spark i.bad { background: #ff4d4f; }
+.spark i.muted { background: #d9d9d9; }
+
+.page-title {
+  margin-bottom: 16px;
+}

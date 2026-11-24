@@ -1,0 +1,86 @@
+name: loopmonitor
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  migrate:
+    build: ./backend
+    env_file: .env
+    command: python -m app.cli bootstrap
+    volumes:
+      - loopmonitor-data:/data
+    restart: "no"
+
+  backend:
+    <<: *logging
+    build: ./backend
+    env_file: .env
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - loopmonitor-data:/data
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    <<: *logging
+    build: ./backend
+    env_file: .env
+    command: python -m app.worker
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - loopmonitor-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time; p='/data/worker-heartbeat'; assert time.time()-os.path.getmtime(p)<40"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    restart: unless-stopped
+
+  frontend:
+    <<: *logging
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:8080:80"
+    restart: unless-stopped
+
+  proxy:
+    <<: *logging
+    image: caddy:2
+    profiles: ["proxy"]
+    env_file: .env
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  loopmonitor-data:
+  caddy-data:
+  caddy-config:
